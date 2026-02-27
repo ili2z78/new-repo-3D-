@@ -35,6 +35,8 @@ export class Game {
 
         document.getElementById('btn-solo').addEventListener('click', () => this.start(1));
         document.getElementById('btn-multi').addEventListener('click', () => this.start(2));
+        document.getElementById('btn-restart').addEventListener('click', () => this.restart());
+        document.getElementById('btn-home').addEventListener('click', () => this.goHome());
         
         window.addEventListener('resize', () => this.onWindowResize());
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -43,6 +45,7 @@ export class Game {
     }
 
     start(playerCount) {
+        this.currentPlayerCount = playerCount;
         const size = parseInt(document.getElementById('maze-size').value);
         
         // Reset state
@@ -64,7 +67,7 @@ export class Game {
         this.initEnvironment();
 
         document.getElementById('start-screen').style.display = 'none';
-        document.getElementById('ui').style.display = 'block';
+        document.getElementById('ui').style.display = 'flex';
         
         this.addPlayer(1, 0x00ff00);
         if (playerCount > 1) {
@@ -73,6 +76,29 @@ export class Game {
 
         this.isGameStarted = true;
         this.startTime = Date.now();
+        
+        // Remove victory screens if any
+        const screens = document.querySelectorAll('.victory-screen');
+        screens.forEach(s => s.remove());
+    }
+
+    restart() {
+        if (this.currentPlayerCount) {
+            this.start(this.currentPlayerCount);
+        }
+    }
+
+    goHome() {
+        this.isGameStarted = false;
+        this.isGameOver = false;
+        this.players = [];
+        this.cameras = [];
+        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('ui').style.display = 'none';
+        
+        // Remove victory screens if any
+        const screens = document.querySelectorAll('.victory-screen');
+        screens.forEach(s => s.remove());
     }
 
     initLights() {
@@ -311,19 +337,28 @@ export class Game {
         div.innerHTML = `
             <h1>Victoire !</h1>
             <p>Joueur ${player.id} a gagné en ${elapsed} secondes.</p>
-            <button onclick="location.reload()">Rejouer</button>
+            <div class="nav-actions" style="justify-content: center; pointer-events: auto;">
+                <button id="btn-victory-restart">REJOUER</button>
+                <button id="btn-victory-home">MENU PRINCIPAL</button>
+            </div>
         `;
         document.body.appendChild(div);
+        
+        document.getElementById('btn-victory-restart').addEventListener('click', () => this.restart());
+        document.getElementById('btn-victory-home').addEventListener('click', () => this.goHome());
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
         this.update();
 
+        if (!this.isGameStarted) return;
+
         if (this.players.length === 1) {
+            this.renderer.setScissorTest(false);
             this.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
             this.renderer.render(this.scene, this.cameras[0]);
-        } else {
+        } else if (this.players.length === 2) {
             // Split screen
             const w = window.innerWidth / 2;
             const h = window.innerHeight;
