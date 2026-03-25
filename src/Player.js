@@ -1,17 +1,43 @@
 import * as THREE from 'three';
 
 export class Player {
-    constructor(id, color, labyrinth) {
+    constructor(id, color, labyrinth, type = 'ROBOT') {
         this.id = id;
         this.color = color;
         this.labyrinth = labyrinth;
+        this.type = type;
         this.speed = 6;
         this.rotSpeed = 3.0;
         this.keys = {};
 
-        // Player model (Sleek robot design)
         this.mesh = new THREE.Group();
-        
+        this.createModel();
+
+        this.mesh.position.set(1.0, 0, 1.0);
+        this.bobbing = 0;
+        this.velocity = new THREE.Vector3();
+
+        window.addEventListener('keydown', (e) => this.keys[e.code] = true);
+        window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+    }
+
+    createModel() {
+        switch(this.type) {
+            case 'ROBOT':
+                this.createRobotModel();
+                break;
+            case 'SPIKE':
+                this.createSpikeModel();
+                break;
+            case 'ORB':
+                this.createOrbModel();
+                break;
+            default:
+                this.createRobotModel();
+        }
+    }
+
+    createRobotModel() {
         // Body (Floating base)
         const bodyGeo = new THREE.CylinderGeometry(0.2, 0.15, 0.3, 16);
         const bodyMat = new THREE.MeshStandardMaterial({ 
@@ -64,13 +90,66 @@ export class Player {
         const thruster = new THREE.Mesh(lightGeo, lightMat);
         thruster.position.y = 0.35;
         this.mesh.add(thruster);
+    }
 
-        this.mesh.position.set(1.0, 0, 1.0); // Parfaitement centré dans la cellule (1,1)
-        this.bobbing = 0;
-        this.velocity = new THREE.Vector3();
+    createSpikeModel() {
+        const coreGeo = new THREE.OctahedronGeometry(0.25, 0);
+        const coreMat = new THREE.MeshStandardMaterial({ 
+            color: this.color, 
+            emissive: this.color, 
+            emissiveIntensity: 0.5,
+            flatShading: true 
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        core.position.y = 0.6;
+        this.mesh.add(core);
 
-        window.addEventListener('keydown', (e) => this.keys[e.code] = true);
-        window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+        // Orbiting spikes
+        this.spikes = new THREE.Group();
+        this.spikes.position.y = 0.6;
+        const spikeGeo = new THREE.ConeGeometry(0.05, 0.2, 4);
+        const spikeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1 });
+        
+        for(let i=0; i<8; i++) {
+            const spike = new THREE.Mesh(spikeGeo, spikeMat);
+            const angle = (i / 8) * Math.PI * 2;
+            spike.position.set(Math.cos(angle) * 0.4, 0, Math.sin(angle) * 0.4);
+            spike.lookAt(0, 0.6, 0);
+            spike.rotateX(Math.PI/2);
+            this.spikes.add(spike);
+        }
+        this.mesh.add(this.spikes);
+    }
+
+    createOrbModel() {
+        const innerGeo = new THREE.SphereGeometry(0.15, 32, 32);
+        const innerMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 2 
+        });
+        const inner = new THREE.Mesh(innerGeo, innerMat);
+        inner.position.y = 0.6;
+        this.mesh.add(inner);
+
+        const outerGeo = new THREE.SphereGeometry(0.3, 32, 32);
+        const outerMat = new THREE.MeshStandardMaterial({ 
+            color: this.color, 
+            transparent: true, 
+            opacity: 0.3, 
+            roughness: 0, 
+            metalness: 1 
+        });
+        this.outerOrb = new THREE.Mesh(outerGeo, outerMat);
+        this.outerOrb.position.y = 0.6;
+        this.mesh.add(this.outerOrb);
+
+        const ringGeo = new THREE.TorusGeometry(0.4, 0.02, 16, 100);
+        const ringMat = new THREE.MeshStandardMaterial({ color: this.color, emissive: this.color });
+        this.ring = new THREE.Mesh(ringGeo, ringMat);
+        this.ring.position.y = 0.6;
+        this.ring.rotation.x = Math.PI/2;
+        this.mesh.add(this.ring);
     }
 
     isColliding(x, z) {
@@ -91,15 +170,30 @@ export class Player {
         let rotateRight = false;
 
         // Separate Controls:
-        // Letters (ZQSD/WASD) for MOVEMENT
-        if (this.keys['KeyW'] || this.keys['KeyZ']) moveForward = true;
-        if (this.keys['KeyS']) moveBackward = true;
-        if (this.keys['KeyA'] || this.keys['KeyQ']) strafeLeft = true;
-        if (this.keys['KeyD']) strafeRight = true;
+        const isMultiplayer = this.labyrinth.playerCount > 1;
 
-        // Arrows for ROTATION (Camera/Player orientation)
-        if (this.keys['ArrowLeft']) rotateLeft = true;
-        if (this.keys['ArrowRight']) rotateRight = true;
+        if (!isMultiplayer) {
+            // SOLO MODE: WASD to move, Arrows to rotate
+            if (this.keys['KeyW'] || this.keys['KeyZ']) moveForward = true;
+            if (this.keys['KeyS']) moveBackward = true;
+            if (this.keys['KeyA'] || this.keys['KeyQ']) strafeLeft = true;
+            if (this.keys['KeyD']) strafeRight = true;
+            if (this.keys['ArrowLeft']) rotateLeft = true;
+            if (this.keys['ArrowRight']) rotateRight = true;
+        } else if (this.id === 1) {
+            // Player 1 (Multi): WASD/ZQSD
+            if (this.keys['KeyW'] || this.keys['KeyZ']) moveForward = true;
+            if (this.keys['KeyS']) moveBackward = true;
+            if (this.keys['KeyA'] || this.keys['KeyQ']) rotateLeft = true;
+            if (this.keys['KeyD']) rotateRight = true;
+            if (this.keys['KeyE']) strafeRight = true;
+        } else {
+            // Player 2 (Multi): Arrows
+            if (this.keys['ArrowUp']) moveForward = true;
+            if (this.keys['ArrowDown']) moveBackward = true;
+            if (this.keys['ArrowLeft']) rotateLeft = true;
+            if (this.keys['ArrowRight']) rotateRight = true;
+        }
 
         // Apply Rotation
         if (rotateLeft) this.mesh.rotation.y += this.rotSpeed * delta;
@@ -139,18 +233,43 @@ export class Player {
         const bob = Math.sin(this.bobbing) * 0.05;
         const isMoving = moveForward || moveBackward || strafeLeft || strafeRight;
 
-        if (this.mesh.children[0]) this.mesh.children[0].position.y = 0.5 + bob;
-        if (this.mesh.children[1]) this.mesh.children[1].position.y = 0.8 + bob;
-        if (this.mesh.children[2]) this.mesh.children[2].position.y = 0.82 + bob;
+        if (this.type === 'ROBOT') {
+            if (this.mesh.children[0]) this.mesh.children[0].position.y = 0.5 + bob;
+            if (this.mesh.children[1]) this.mesh.children[1].position.y = 0.8 + bob;
+            if (this.mesh.children[2]) this.mesh.children[2].position.y = 0.82 + bob;
 
-        const handBob = Math.sin(this.bobbing * 2) * (isMoving ? 0.1 : 0.02);
-        if (this.handL) {
-            this.handL.position.y = 0.6 + handBob;
-            this.handL.position.z = 0.1 + (isMoving ? Math.cos(this.bobbing * 2) * 0.1 : 0);
-        }
-        if (this.handR) {
-            this.handR.position.y = 0.6 - handBob;
-            this.handR.position.z = 0.1 - (isMoving ? Math.cos(this.bobbing * 2) * 0.1 : 0);
+            const handBob = Math.sin(this.bobbing * 2) * (isMoving ? 0.1 : 0.02);
+            if (this.handL) {
+                this.handL.position.y = 0.6 + handBob;
+                this.handL.position.z = 0.1 + (isMoving ? Math.cos(this.bobbing * 2) * 0.1 : 0);
+            }
+            if (this.handR) {
+                this.handR.position.y = 0.6 - handBob;
+                this.handR.position.z = 0.1 - (isMoving ? Math.cos(this.bobbing * 2) * 0.1 : 0);
+            }
+        } else if (this.type === 'SPIKE') {
+            if (this.spikes) {
+                this.spikes.rotation.y += delta * 2;
+                this.spikes.position.y = 0.6 + bob;
+            }
+            if (this.mesh.children[0]) {
+                this.mesh.children[0].position.y = 0.6 + bob;
+                this.mesh.children[0].rotation.x += delta;
+                this.mesh.children[0].rotation.z += delta * 0.5;
+            }
+        } else if (this.type === 'ORB') {
+            if (this.outerOrb) {
+                this.outerOrb.position.y = 0.6 + bob;
+                this.outerOrb.scale.setScalar(1 + Math.sin(this.bobbing * 2) * 0.05);
+            }
+            if (this.ring) {
+                this.ring.position.y = 0.6 + bob;
+                this.ring.rotation.z += delta * 3;
+                this.ring.rotation.x = Math.PI/2 + Math.sin(this.bobbing) * 0.2;
+            }
+            if (this.mesh.children[0]) {
+                this.mesh.children[0].position.y = 0.6 + bob;
+            }
         }
     }
 }

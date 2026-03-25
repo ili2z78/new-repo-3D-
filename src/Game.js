@@ -32,6 +32,17 @@ export class Game {
         this.isGameOver = false;
         this.isGameStarted = false;
         this.startTime = 0;
+        this.selectedCharacterType = 'ROBOT';
+
+        // Avatar selection
+        const avatarOptions = document.querySelectorAll('.avatar-option');
+        avatarOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                avatarOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                this.selectedCharacterType = option.dataset.type;
+            });
+        });
 
         document.getElementById('btn-solo').addEventListener('click', () => this.start(1));
         document.getElementById('btn-multi').addEventListener('click', () => this.start(2));
@@ -61,6 +72,7 @@ export class Game {
         this.labyrinthWidth = size;
         this.labyrinthHeight = size;
         this.labyrinth = new Labyrinth(this.labyrinthWidth, this.labyrinthHeight);
+        this.labyrinth.playerCount = playerCount;
         this.labyrinth.generate();
         
         this.initLights();
@@ -69,16 +81,30 @@ export class Game {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('ui').style.display = 'flex';
         
-        this.addPlayer(1, 0x00ff00);
+        const colors = {
+            'ROBOT': 0x00ffff,
+            'SPIKE': 0xff00ff, // Rose
+            'ORB': 0x00ff88    // Vert
+        };
+
+        const p1Color = colors[this.selectedCharacterType] || 0x00ff00;
+        this.addPlayer(1, p1Color, this.selectedCharacterType);
+
         if (playerCount > 1) {
-            this.addPlayer(2, 0x0000ff);
+            const availableTypes = Object.keys(colors).filter(t => t !== this.selectedCharacterType);
+            const p2Type = availableTypes[0]; // Second one
+            this.addPlayer(2, colors[p2Type], p2Type);
         }
 
         this.isGameStarted = true;
         this.startTime = Date.now();
         
-        // Remove victory screens if any
-        const screens = document.querySelectorAll('.victory-screen');
+        // Remove end screens
+        this.clearEndScreens();
+    }
+
+    clearEndScreens() {
+        const screens = document.querySelectorAll('.victory-screen, .death-screen');
         screens.forEach(s => s.remove());
     }
 
@@ -93,12 +119,9 @@ export class Game {
         this.isGameOver = false;
         this.players = [];
         this.cameras = [];
-        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('start-screen').style.display = 'flex';
         document.getElementById('ui').style.display = 'none';
-        
-        // Remove victory screens if any
-        const screens = document.querySelectorAll('.victory-screen');
-        screens.forEach(s => s.remove());
+        this.clearEndScreens();
     }
 
     initLights() {
@@ -255,12 +278,12 @@ export class Game {
         this.scene.add(light);
     }
 
-    addPlayer(id, color) {
-        const player = new Player(id, color, this.labyrinth);
+    addPlayer(id, color, type = 'ROBOT') {
+        const player = new Player(id, color, this.labyrinth, type);
         this.players.push(player);
         this.scene.add(player.mesh);
         
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.cameras.push(camera);
     }
 
@@ -271,7 +294,7 @@ export class Game {
             this.currentCameraView = views[(currentIndex + 1) % views.length];
         }
         if (e.code === 'KeyR' && this.isGameOver) {
-            this.reset();
+            this.restart();
         }
     }
 
@@ -299,7 +322,9 @@ export class Game {
 
         // Update Timer
         const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
-        document.getElementById('timer').innerText = `Temps: ${elapsed}s`;
+        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const secs = (elapsed % 60).toString().padStart(2, '0');
+        document.getElementById('timer').innerText = `${mins}:${secs}`;
     }
 
     updateCamera(index) {
@@ -307,13 +332,22 @@ export class Game {
         const camera = this.cameras[index];
 
         if (this.currentCameraView === 'first-person') {
-            camera.position.copy(player.mesh.position);
+            if (this.scene.fog) this.scene.fog.far = 30;
+            
+            // Move camera slightly back from center to see more of the avatar/arms
+            const backOffset = new THREE.Vector3(0, 0, 0.4);
+            backOffset.applyQuaternion(player.mesh.quaternion);
+            
+            camera.position.copy(player.mesh.position).add(backOffset);
             camera.position.y = 0.8; // Eye level
             
             const forward = new THREE.Vector3(0, 0, -1);
             forward.applyQuaternion(player.mesh.quaternion);
             camera.lookAt(player.mesh.position.clone().add(forward));
+            camera.fov = 105; // Wider FOV
+            camera.updateProjectionMatrix();
         } else if (this.currentCameraView === 'third-person') {
+            if (this.scene.fog) this.scene.fog.far = 30;
             // Better 3rd person: Higher and further back
             const offset = new THREE.Vector3(0, 3, 5); 
             offset.applyQuaternion(player.mesh.quaternion);
@@ -321,25 +355,37 @@ export class Game {
             const targetPos = player.mesh.position.clone().add(offset);
             camera.position.lerp(targetPos, 0.1); // Smooth follow
             camera.lookAt(player.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)));
+            camera.fov = 90;
+            camera.updateProjectionMatrix();
         } else {
-            // Better Top view: Higher
-            camera.position.set(this.labyrinthWidth / 2, this.labyrinthWidth * 1.5, this.labyrinthHeight / 2);
-            camera.lookAt(this.labyrinthWidth / 2, 0, this.labyrinthHeight / 2);
+            // Top view: vue d'ensemble du labyrinthe
+            // Clearer for top view
+            if (this.scene.fog) this.scene.fog.far = 200;
+            
+            const maxSize = Math.max(this.labyrinthWidth, this.labyrinthHeight);
+            camera.position.set(this.labyrinthWidth / 2 - 0.5, maxSize * 1.5, this.labyrinthHeight / 2 - 0.5);
+            camera.lookAt(this.labyrinthWidth / 2 - 0.5, 0, this.labyrinthHeight / 2 - 0.5);
+            camera.fov = 75;
+            camera.updateProjectionMatrix();
         }
     }
 
     victory(player) {
+        if (this.isGameOver) return;
         this.isGameOver = true;
+        
         const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const secs = (elapsed % 60).toString().padStart(2, '0');
         
         const div = document.createElement('div');
         div.className = 'victory-screen';
         div.innerHTML = `
-            <h1>Victoire !</h1>
-            <p>Joueur ${player.id} a gagné en ${elapsed} secondes.</p>
-            <div class="nav-actions" style="justify-content: center; pointer-events: auto;">
-                <button id="btn-victory-restart">REJOUER</button>
-                <button id="btn-victory-home">MENU PRINCIPAL</button>
+            <h1>MISSION RÉUSSIE</h1>
+            <p class="subtitle">LE RÉSEAU A ÉTÉ TRAVERSÉ EN ${mins}:${secs}</p>
+            <div class="nav-actions">
+                <button id="btn-victory-restart" class="btn-primary">NOUVELLE SESSION</button>
+                <button id="btn-victory-home" class="btn-secondary">MENU PRINCIPAL</button>
             </div>
         `;
         document.body.appendChild(div);
@@ -354,24 +400,37 @@ export class Game {
 
         if (!this.isGameStarted) return;
 
+        const isFirstPerson = this.currentCameraView === 'first-person';
+
         if (this.players.length === 1) {
             this.renderer.setScissorTest(false);
             this.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            
+            if (isFirstPerson) this.players[0].mesh.visible = false;
             this.renderer.render(this.scene, this.cameras[0]);
+            if (isFirstPerson) this.players[0].mesh.visible = true;
         } else if (this.players.length === 2) {
             // Split screen
             const w = window.innerWidth / 2;
             const h = window.innerHeight;
 
+            // Player 1
             this.renderer.setViewport(0, 0, w, h);
             this.renderer.setScissor(0, 0, w, h);
             this.renderer.setScissorTest(true);
+            
+            if (isFirstPerson) this.players[0].mesh.visible = false;
             this.renderer.render(this.scene, this.cameras[0]);
+            if (isFirstPerson) this.players[0].mesh.visible = true;
 
+            // Player 2
             this.renderer.setViewport(w, 0, w, h);
             this.renderer.setScissor(w, 0, w, h);
             this.renderer.setScissorTest(true);
+            
+            if (isFirstPerson) this.players[1].mesh.visible = false;
             this.renderer.render(this.scene, this.cameras[1]);
+            if (isFirstPerson) this.players[1].mesh.visible = true;
         }
     }
 }
