@@ -6,14 +6,14 @@ export class Game {
     constructor() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x111118);
-        // Clearer fog
+        // Brouillard plus clair
         this.scene.fog = new THREE.Fog(0x111118, 5, 30);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        // Simple tone mapping to avoid "brouillé"
+        // Simple tone mapping pour éviter le flou
         this.renderer.toneMapping = THREE.NoToneMapping;
         document.getElementById('container').appendChild(this.renderer.domElement);
 
@@ -34,7 +34,7 @@ export class Game {
         this.startTime = 0;
         this.selectedCharacterType = 'ROBOT';
 
-        // Avatar selection
+        // Sélection de l'avatar
         const avatarOptions = document.querySelectorAll('.avatar-option');
         avatarOptions.forEach(option => {
             option.addEventListener('click', () => {
@@ -59,12 +59,12 @@ export class Game {
         this.currentPlayerCount = playerCount;
         const size = parseInt(document.getElementById('maze-size').value);
         
-        // Reset state
+        // Réinitialiser l'état
         this.isGameOver = false;
         this.players = [];
         this.cameras = [];
         
-        // Clear scene
+        // Nettoyer la scène
         while(this.scene.children.length > 0){ 
             this.scene.remove(this.scene.children[0]); 
         }
@@ -92,14 +92,14 @@ export class Game {
 
         if (playerCount > 1) {
             const availableTypes = Object.keys(colors).filter(t => t !== this.selectedCharacterType);
-            const p2Type = availableTypes[0]; // Second one
+            const p2Type = availableTypes[0]; // Deuxième type disponible
             this.addPlayer(2, colors[p2Type], p2Type);
         }
 
         this.isGameStarted = true;
         this.startTime = Date.now();
         
-        // Remove end screens
+        // Supprimer les écrans de fin
         this.clearEndScreens();
     }
 
@@ -125,11 +125,11 @@ export class Game {
     }
 
     initLights() {
-        // More bright ambient light
+        // Lumière ambiante plus brillante
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         this.scene.add(ambientLight);
 
-        // Directional light instead of point light for clearer shadows
+        // Lumière directionnelle au lieu de ponctuelle pour des ombres plus nettes
         const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
         dirLight.position.set(20, 40, 20);
         dirLight.castShadow = true;
@@ -148,7 +148,7 @@ export class Game {
             ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0, 0, 512, 512);
             
-            // Grid lines
+            // Lignes de la grille
             ctx.strokeStyle = '#1a1a2f';
             ctx.lineWidth = 2;
             for (let i = 0; i < 512; i += 64) {
@@ -156,7 +156,7 @@ export class Game {
                 ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
             }
             
-            // Glowing circuits
+            // Circuits lumineux
             ctx.strokeStyle = '#00ffff33';
             ctx.lineWidth = 1;
             for(let i=0; i<10; i++) {
@@ -173,13 +173,13 @@ export class Game {
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, 512, 512);
             
-            // Tech patterns
+            // Motifs technologiques
             ctx.strokeStyle = '#333344';
             ctx.lineWidth = 4;
             ctx.strokeRect(40, 40, 432, 432);
             ctx.strokeRect(100, 0, 312, 512);
             
-            // Glowing strips
+            // Bandes lumineuses
             ctx.fillStyle = '#00ccff';
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#00ccff';
@@ -221,7 +221,7 @@ export class Game {
         floor.receiveShadow = true;
         this.scene.add(floor);
 
-        // Walls
+        // Murs
         const wallGeo = new THREE.BoxGeometry(1, 2, 1);
         const wallMat = new THREE.MeshStandardMaterial({ 
             map: wallTexture,
@@ -243,9 +243,9 @@ export class Game {
             }
         }
 
-        // Markers
-        this.addMarker(0, 1, 0x00ff00); // Start
-        this.addMarker(this.labyrinthWidth - 1, this.labyrinthHeight - 2, 0xff0000); // End
+        // Marqueurs
+        this.addMarker(0, 1, 0x00ff00); // Départ
+        this.addMarker(this.labyrinthWidth - 1, this.labyrinthHeight - 2, 0xff0000); // Fin
     }
 
     addMarker(x, z, color) {
@@ -309,18 +309,18 @@ export class Game {
     update() {
         if (this.isGameOver || !this.isGameStarted) return;
 
-        const delta = 0.016; // Approx 60fps
+        const delta = 0.016; // Environ 60fps
         this.players.forEach((player, index) => {
             player.update(delta);
             this.updateCamera(index);
 
-            // Check win condition
+            // Vérifier la condition de victoire
             if (player.mesh.position.x > this.labyrinthWidth - 1) {
                 this.victory(player);
             }
         });
 
-        // Update Timer
+        // Mettre à jour le chronomètre
         const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
         const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
         const secs = (elapsed % 60).toString().padStart(2, '0');
@@ -334,32 +334,32 @@ export class Game {
         if (this.currentCameraView === 'first-person') {
             if (this.scene.fog) this.scene.fog.far = 30;
             
-            // Move camera slightly back from center to see more of the avatar/arms
+            // Reculer légèrement la caméra du centre pour voir davantage l'avatar/les bras
             const backOffset = new THREE.Vector3(0, 0, 0.4);
             backOffset.applyQuaternion(player.mesh.quaternion);
             
             camera.position.copy(player.mesh.position).add(backOffset);
-            camera.position.y = 0.8; // Eye level
+            camera.position.y = 0.8; // Niveau des yeux
             
             const forward = new THREE.Vector3(0, 0, -1);
             forward.applyQuaternion(player.mesh.quaternion);
             camera.lookAt(player.mesh.position.clone().add(forward));
-            camera.fov = 105; // Wider FOV
+            camera.fov = 105; // Champ de vision plus large
             camera.updateProjectionMatrix();
         } else if (this.currentCameraView === 'third-person') {
             if (this.scene.fog) this.scene.fog.far = 30;
-            // Better 3rd person: Higher and further back
+            // Meilleure 3ème personne : Plus haute et plus reculée
             const offset = new THREE.Vector3(0, 3, 5); 
             offset.applyQuaternion(player.mesh.quaternion);
             
             const targetPos = player.mesh.position.clone().add(offset);
-            camera.position.lerp(targetPos, 0.1); // Smooth follow
+            camera.position.lerp(targetPos, 0.1); // Suivi fluide
             camera.lookAt(player.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)));
             camera.fov = 90;
             camera.updateProjectionMatrix();
         } else {
-            // Top view: vue d'ensemble du labyrinthe
-            // Clearer for top view
+            // Vue de dessus : vue d'ensemble du labyrinthe
+            // Plus clair pour la vue de dessus
             if (this.scene.fog) this.scene.fog.far = 200;
             
             const maxSize = Math.max(this.labyrinthWidth, this.labyrinthHeight);

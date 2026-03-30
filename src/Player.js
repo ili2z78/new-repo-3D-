@@ -38,7 +38,7 @@ export class Player {
     }
 
     createRobotModel() {
-        // Body (Floating base)
+        // Corps (Base flottante)
         const bodyGeo = new THREE.CylinderGeometry(0.2, 0.15, 0.3, 16);
         const bodyMat = new THREE.MeshStandardMaterial({ 
             color: this.color, 
@@ -52,7 +52,7 @@ export class Player {
         body.castShadow = true;
         this.mesh.add(body);
 
-        // Head (Spherical visor)
+        // Tête (Visière sphérique)
         const headGeo = new THREE.SphereGeometry(0.18, 20, 20);
         const headMat = new THREE.MeshStandardMaterial({ 
             color: 0x222222, 
@@ -64,7 +64,7 @@ export class Player {
         head.castShadow = true;
         this.mesh.add(head);
 
-        // Visor light
+        // Lumière de la visière
         const visorGeo = new THREE.BoxGeometry(0.2, 0.05, 0.1);
         const visorMat = new THREE.MeshStandardMaterial({ 
             color: this.color, 
@@ -75,7 +75,7 @@ export class Player {
         visor.position.set(0, 0.82, 0.12);
         this.mesh.add(visor);
 
-        // Floating hands
+        // Mains flottantes
         const handGeo = new THREE.SphereGeometry(0.05, 8, 8);
         const handMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
         this.handL = new THREE.Mesh(handGeo, handMat);
@@ -84,7 +84,7 @@ export class Player {
         this.handR.position.set(0.3, 0.6, 0.1);
         this.mesh.add(this.handL, this.handR);
 
-        // Thruster light (underneath)
+        // Lumière du propulseur (en dessous)
         const lightGeo = new THREE.CylinderGeometry(0.08, 0, 0.1, 8);
         const lightMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
         const thruster = new THREE.Mesh(lightGeo, lightMat);
@@ -104,7 +104,7 @@ export class Player {
         core.position.y = 0.6;
         this.mesh.add(core);
 
-        // Orbiting spikes
+        // Pointes en orbite
         this.spikes = new THREE.Group();
         this.spikes.position.y = 0.6;
         const spikeGeo = new THREE.ConeGeometry(0.05, 0.2, 4);
@@ -154,7 +154,7 @@ export class Player {
 
     isColliding(x, z) {
         const radius = 0.15; // Rayon réduit pour éviter les micro-blocages
-        // Check 4 points around the player
+        // Vérifie 4 points autour du joueur
         return this.labyrinth.isWall(x - radius, z - radius) ||
                this.labyrinth.isWall(x + radius, z - radius) ||
                this.labyrinth.isWall(x - radius, z + radius) ||
@@ -169,11 +169,11 @@ export class Player {
         let rotateLeft = false;
         let rotateRight = false;
 
-        // Separate Controls:
+        // Contrôles séparés :
         const isMultiplayer = this.labyrinth.playerCount > 1;
 
         if (!isMultiplayer) {
-            // SOLO MODE: WASD to move, Arrows to rotate
+            // MODE SOLO : ZQSD pour se déplacer, Flèches pour tourner
             if (this.keys['KeyW'] || this.keys['KeyZ']) moveForward = true;
             if (this.keys['KeyS']) moveBackward = true;
             if (this.keys['KeyA'] || this.keys['KeyQ']) strafeLeft = true;
@@ -181,25 +181,25 @@ export class Player {
             if (this.keys['ArrowLeft']) rotateLeft = true;
             if (this.keys['ArrowRight']) rotateRight = true;
         } else if (this.id === 1) {
-            // Player 1 (Multi): WASD/ZQSD
+            // Joueur 1 (Multi) : WASD/ZQSD
             if (this.keys['KeyW'] || this.keys['KeyZ']) moveForward = true;
             if (this.keys['KeyS']) moveBackward = true;
             if (this.keys['KeyA'] || this.keys['KeyQ']) rotateLeft = true;
             if (this.keys['KeyD']) rotateRight = true;
             if (this.keys['KeyE']) strafeRight = true;
         } else {
-            // Player 2 (Multi): Arrows
+            // Joueur 2 (Multi) : Flèches
             if (this.keys['ArrowUp']) moveForward = true;
             if (this.keys['ArrowDown']) moveBackward = true;
             if (this.keys['ArrowLeft']) rotateLeft = true;
             if (this.keys['ArrowRight']) rotateRight = true;
         }
 
-        // Apply Rotation
+        // Appliquer la rotation
         if (rotateLeft) this.mesh.rotation.y += this.rotSpeed * delta;
         if (rotateRight) this.mesh.rotation.y -= this.rotSpeed * delta;
 
-        // Movement Direction Vector
+        // Vecteur de direction du mouvement
         const moveDir = new THREE.Vector3(0, 0, 0);
         if (moveForward) moveDir.z -= 1;
         if (moveBackward) moveDir.z += 1;
@@ -208,14 +208,14 @@ export class Player {
 
         if (moveDir.length() > 0) {
             moveDir.normalize();
-            // Rotate movement vector relative to player's orientation
+            // Faire pivoter le vecteur de mouvement par rapport à l'orientation du joueur
             moveDir.applyQuaternion(this.mesh.quaternion);
             
             const moveStep = moveDir.multiplyScalar(this.speed * delta);
             const nextX = this.mesh.position.x + moveStep.x;
             const nextZ = this.mesh.position.z + moveStep.z;
 
-            // Collision logic with sliding
+            // Logique de collision avec glissement
             if (!this.isColliding(nextX, nextZ)) {
                 this.mesh.position.x = nextX;
                 this.mesh.position.z = nextZ;
@@ -228,7 +228,7 @@ export class Player {
             }
         }
 
-        // Idle & Move Animation
+        // Animation d'attente et de mouvement
         this.bobbing += delta * 5;
         const bob = Math.sin(this.bobbing) * 0.05;
         const isMoving = moveForward || moveBackward || strafeLeft || strafeRight;

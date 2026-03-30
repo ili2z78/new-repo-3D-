@@ -7,7 +7,7 @@ export class Labyrinth {
     }
 
     reset() {
-        // Initialize grid: 1 is wall, 0 is path
+        // Initialise la grille : 1 est un mur, 0 est un chemin
         this.grid = Array.from({ length: this.height }, () => Array(this.width).fill(1));
     }
 
@@ -35,18 +35,18 @@ export class Labyrinth {
             }
         }
 
-        // Set entrance and exit
-        this.grid[1][0] = 0; // Entrance
-        this.grid[this.height - 2][this.width - 1] = 0; // Exit
+        // Définit l'entrée et la sortie
+        this.grid[1][0] = 0; // Entrée
+        this.grid[this.height - 2][this.width - 1] = 0; // Sortie
     }
 
     getUnvisitedNeighbors(x, y) {
         const neighbors = [];
         const dirs = [
-            [0, -2, 0, -1], // Up
-            [0, 2, 0, 1],   // Down
-            [-2, 0, -1, 0], // Left
-            [2, 0, 1, 0]    // Right
+            [0, -2, 0, -1], // Haut
+            [0, 2, 0, 1],   // Bas
+            [-2, 0, -1, 0], // Gauche
+            [2, 0, 1, 0]    // Droite
         ];
         
         for (const [dx2, dy2, dx1, dy1] of dirs) {
